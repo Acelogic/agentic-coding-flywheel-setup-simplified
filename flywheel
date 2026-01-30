@@ -209,6 +209,88 @@ run_doctor() {
     done
     echo ""
 
+    echo -e "${BOLD}Versions:${NC}"
+    # Get versions quietly, handle missing tools
+    local ver
+    ver=$(claude --version 2>/dev/null | head -1) && echo -e "  claude: ${CYAN}$ver${NC}" || true
+    ver=$(ntm --version 2>/dev/null | head -1) && echo -e "  ntm: ${CYAN}$ver${NC}" || true
+    ver=$(br --version 2>/dev/null | head -1) && echo -e "  br: ${CYAN}$ver${NC}" || true
+    ver=$(bv --version 2>/dev/null | head -1) && echo -e "  bv: ${CYAN}$ver${NC}" || true
+    ver=$(cass --version 2>/dev/null | head -1) && echo -e "  cass: ${CYAN}$ver${NC}" || true
+    echo ""
+
+    echo -e "${BOLD}Auth Status:${NC}"
+    # Check Claude auth
+    if [[ -f "$HOME/.claude/.credentials.json" ]] || [[ -f "$HOME/.config/claude/credentials.json" ]]; then
+        echo -e "  ${GREEN}✓${NC} claude (authenticated)"
+    elif has claude; then
+        echo -e "  ${YELLOW}○${NC} claude (run: claude to login)"
+    fi
+    # Check Codex auth
+    if [[ -f "$HOME/.codex/auth.json" ]] || [[ -n "$OPENAI_API_KEY" ]]; then
+        echo -e "  ${GREEN}✓${NC} codex (authenticated)"
+    elif has codex; then
+        echo -e "  ${YELLOW}○${NC} codex (run: codex to login)"
+    fi
+    # Check Gemini auth
+    if [[ -f "$HOME/.config/gemini/credentials.json" ]] || [[ -n "$GOOGLE_API_KEY" ]] || [[ -n "$GEMINI_API_KEY" ]]; then
+        echo -e "  ${GREEN}✓${NC} gemini (authenticated)"
+    elif has gemini; then
+        echo -e "  ${YELLOW}○${NC} gemini (run: gemini to login)"
+    fi
+    echo ""
+
+    echo -e "${BOLD}Active Sessions:${NC}"
+    local tmux_sessions=$(tmux list-sessions 2>/dev/null)
+    if [[ -n "$tmux_sessions" ]]; then
+        echo "$tmux_sessions" | while read -r line; do
+            echo -e "  ${BLUE}▶${NC} $line"
+        done
+    else
+        echo -e "  ${YELLOW}○${NC} No tmux sessions running"
+    fi
+    echo ""
+
+    echo -e "${BOLD}Project Status:${NC}"
+    if [[ -d ".beads" ]]; then
+        echo -e "  ${GREEN}✓${NC} Task tracking initialized (.beads/)"
+        local task_count=$(br list 2>/dev/null | wc -l | tr -d ' ')
+        [[ "$task_count" -gt 0 ]] && echo -e "  ${CYAN}$task_count task(s)${NC} in project"
+        local ready_count=$(br ready 2>/dev/null | wc -l | tr -d ' ')
+        [[ "$ready_count" -gt 0 ]] && echo -e "  ${GREEN}$ready_count task(s) ready${NC} to work on"
+    else
+        echo -e "  ${YELLOW}○${NC} No task tracking (run: flywheel init)"
+    fi
+    if [[ -f "AGENTS.md" ]]; then
+        echo -e "  ${GREEN}✓${NC} AGENTS.md present"
+    else
+        echo -e "  ${YELLOW}○${NC} No AGENTS.md (run: flywheel init)"
+    fi
+    if [[ -d ".claude" ]]; then
+        echo -e "  ${GREEN}✓${NC} .claude/ directory present"
+    fi
+    echo ""
+
+    echo -e "${BOLD}Tool Freshness:${NC}"
+    local stale_found=0
+    check_stale() {
+        local tool=$1 path=$2
+        if [[ -f "$path" ]]; then
+            local mod_days=$(( ($(date +%s) - $(stat -f %m "$path" 2>/dev/null || stat -c %Y "$path" 2>/dev/null)) / 86400 ))
+            if [[ $mod_days -gt 30 ]]; then
+                echo -e "  ${YELLOW}○${NC} $tool (${mod_days}d old) - consider updating"
+                stale_found=1
+            fi
+        fi
+    }
+    check_stale "ntm" "$HOME/.local/bin/ntm"
+    check_stale "br" "$HOME/.local/bin/br"
+    check_stale "dcg" "$HOME/.local/bin/dcg"
+    check_stale "cm" "$HOME/.local/bin/cm"
+    check_stale "cass" "$HOME/.local/bin/cass"
+    [[ $stale_found -eq 0 ]] && echo -e "  ${GREEN}✓${NC} All tools recently updated"
+    echo ""
+
     local total=$((installed + missing))
     echo -e "${BOLD}Summary:${NC} ${GREEN}$installed${NC}/$total tools installed"
     [[ $missing -gt 0 ]] && echo -e "Run ${CYAN}flywheel install${NC} to install missing tools"
