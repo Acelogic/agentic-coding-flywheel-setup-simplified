@@ -11,7 +11,7 @@
 #   ./flywheel missing   # Show what's missing
 
 set +e
-VERSION="2.1.0"
+VERSION="2.2.0"
 
 # Colors
 if [[ -t 1 ]]; then
@@ -635,6 +635,313 @@ EOF
     echo ""
 }
 
+run_fix() {
+    print_header
+    echo -e "${BOLD}Auto-fixing issues...${NC}"
+    echo ""
+
+    local rc="$HOME/.zshrc"
+    local shell_name="zsh"
+    [[ "$SHELL" == */bash ]] && { rc="$HOME/.bashrc"; shell_name="bash"; }
+
+    local fixed=0
+
+    # Fix PATH
+    if ! echo "$PATH" | grep -q "$HOME/.local/bin"; then
+        echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$rc"
+        echo -e "  ${GREEN}✓${NC} Added ~/.local/bin to PATH"
+        fixed=$((fixed + 1))
+    fi
+    if ! echo "$PATH" | grep -q "$HOME/go/bin"; then
+        echo 'export PATH="$HOME/go/bin:$PATH"' >> "$rc"
+        echo -e "  ${GREEN}✓${NC} Added ~/go/bin to PATH"
+        fixed=$((fixed + 1))
+    fi
+    if ! echo "$PATH" | grep -q "$HOME/.cargo/bin"; then
+        echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> "$rc"
+        echo -e "  ${GREEN}✓${NC} Added ~/.cargo/bin to PATH"
+        fixed=$((fixed + 1))
+    fi
+
+    # Fix shell integrations
+    if has ntm && ! grep -q 'ntm shell' "$rc" 2>/dev/null; then
+        echo "eval \"\$(ntm shell $shell_name)\"" >> "$rc"
+        echo -e "  ${GREEN}✓${NC} Added NTM shell integration"
+        fixed=$((fixed + 1))
+    fi
+    if has zoxide && ! grep -q 'zoxide init' "$rc" 2>/dev/null; then
+        echo "eval \"\$(zoxide init $shell_name)\"" >> "$rc"
+        echo -e "  ${GREEN}✓${NC} Added zoxide integration"
+        fixed=$((fixed + 1))
+    fi
+    if has atuin && ! grep -q 'atuin init' "$rc" 2>/dev/null; then
+        echo "eval \"\$(atuin init $shell_name)\"" >> "$rc"
+        echo -e "  ${GREEN}✓${NC} Added atuin integration"
+        fixed=$((fixed + 1))
+    fi
+
+    echo ""
+    if [[ $fixed -gt 0 ]]; then
+        echo -e "${GREEN}Fixed $fixed issue(s).${NC} Run: ${CYAN}source $rc${NC}"
+    else
+        echo -e "${GREEN}No issues to fix!${NC}"
+    fi
+}
+
+run_upgrade() {
+    print_header
+    echo -e "${BOLD}Upgrading Flywheel...${NC}"
+    echo ""
+
+    local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+    if [[ -d "$script_dir/.git" ]]; then
+        echo "Pulling latest changes..."
+        cd "$script_dir" && git pull
+        echo ""
+        echo -e "${GREEN}✓${NC} Flywheel upgraded!"
+        echo -e "Run ${CYAN}flywheel doctor${NC} to verify."
+    elif [[ -d "$HOME/.local/share/flywheel/.git" ]]; then
+        echo "Pulling latest changes..."
+        cd "$HOME/.local/share/flywheel" && git pull
+        echo ""
+        echo -e "${GREEN}✓${NC} Flywheel upgraded!"
+    else
+        echo -e "${RED}✗${NC} Could not find flywheel git repository."
+        echo -e "Re-install with: ${CYAN}curl -fsSL https://raw.githubusercontent.com/Acelogic/agentic-coding-flywheel-setup-simplified/main/install.sh | bash${NC}"
+    fi
+}
+
+run_spawn() {
+    local name="${1:-$(basename "$PWD")}"
+    local agents="${2:-2}"
+
+    if ! has ntm; then
+        echo -e "${RED}✗${NC} NTM not installed. Run: flywheel install"
+        return 1
+    fi
+
+    echo -e "${BOLD}Spawning $agents Claude agent(s) for: $name${NC}"
+    ntm spawn "$name" --cc="$agents"
+}
+
+run_sessions() {
+    print_header
+    echo -e "${BOLD}Active Sessions:${NC}"
+    echo ""
+
+    local sessions=$(tmux list-sessions 2>/dev/null)
+    if [[ -n "$sessions" ]]; then
+        echo "$sessions"
+        echo ""
+        echo -e "Commands:"
+        echo -e "  Attach:  ${CYAN}tmux attach -t <name>${NC}"
+        echo -e "  Kill:    ${CYAN}tmux kill-session -t <name>${NC}"
+        echo -e "  Kill all: ${CYAN}tmux kill-server${NC}"
+    else
+        echo -e "${YELLOW}No active sessions${NC}"
+    fi
+    echo ""
+
+    # Show MCP Agent Mail status
+    if curl -s http://127.0.0.1:8765/health &>/dev/null; then
+        echo -e "${GREEN}✓${NC} MCP Agent Mail running on :8765"
+    fi
+}
+
+run_new() {
+    local name="$1"
+
+    if [[ -z "$name" ]]; then
+        echo -e "${RED}Usage: flywheel new <project-name>${NC}"
+        return 1
+    fi
+
+    if [[ -d "$name" ]]; then
+        echo -e "${RED}Directory '$name' already exists${NC}"
+        return 1
+    fi
+
+    echo -e "${BOLD}Creating new project: $name${NC}"
+    mkdir -p "$name"
+    cd "$name" || return 1
+    git init --quiet
+
+    # Run init in the new directory
+    run_init "$name"
+
+    echo ""
+    echo -e "Created at: ${CYAN}$(pwd)${NC}"
+}
+
+run_auth() {
+    print_header
+    echo -e "${BOLD}Authentication Status:${NC}"
+    echo ""
+
+    # Claude
+    echo -e "${BOLD}Claude:${NC}"
+    if [[ -f "$HOME/.claude/.credentials.json" ]] || [[ -f "$HOME/.config/claude/credentials.json" ]]; then
+        echo -e "  ${GREEN}✓${NC} Authenticated"
+    else
+        echo -e "  ${YELLOW}○${NC} Not authenticated"
+        echo -e "  Run: ${CYAN}claude${NC} (follow prompts to login)"
+    fi
+    echo ""
+
+    # Codex
+    echo -e "${BOLD}Codex:${NC}"
+    if [[ -f "$HOME/.codex/auth.json" ]]; then
+        echo -e "  ${GREEN}✓${NC} Authenticated (config file)"
+    elif [[ -n "$OPENAI_API_KEY" ]]; then
+        echo -e "  ${GREEN}✓${NC} Authenticated (OPENAI_API_KEY set)"
+    else
+        echo -e "  ${YELLOW}○${NC} Not authenticated"
+        echo -e "  Run: ${CYAN}codex${NC} or set ${CYAN}OPENAI_API_KEY${NC}"
+    fi
+    echo ""
+
+    # Gemini
+    echo -e "${BOLD}Gemini:${NC}"
+    if [[ -f "$HOME/.config/gemini/credentials.json" ]]; then
+        echo -e "  ${GREEN}✓${NC} Authenticated (config file)"
+    elif [[ -n "$GOOGLE_API_KEY" ]] || [[ -n "$GEMINI_API_KEY" ]]; then
+        echo -e "  ${GREEN}✓${NC} Authenticated (API key set)"
+    else
+        echo -e "  ${YELLOW}○${NC} Not authenticated"
+        echo -e "  Run: ${CYAN}gemini${NC} or set ${CYAN}GEMINI_API_KEY${NC}"
+    fi
+    echo ""
+}
+
+run_logs() {
+    print_header
+    echo -e "${BOLD}Recent Session Logs:${NC}"
+    echo ""
+
+    # Check for CASS logs
+    if has cass; then
+        echo -e "${BOLD}Recent CASS sessions:${NC}"
+        cass search "" --limit 5 2>/dev/null || echo "  No sessions found"
+        echo ""
+    fi
+
+    # Check Claude logs
+    local claude_log="$HOME/.claude/logs"
+    if [[ -d "$claude_log" ]]; then
+        echo -e "${BOLD}Recent Claude logs:${NC}"
+        ls -lt "$claude_log"/*.log 2>/dev/null | head -5 | while read -r line; do
+            echo "  $line"
+        done
+        echo ""
+        echo -e "View latest: ${CYAN}tail -f $claude_log/$(ls -t "$claude_log" 2>/dev/null | head -1)${NC}"
+    fi
+
+    # Check tmux logs if any
+    echo ""
+    echo -e "${BOLD}Active tmux sessions:${NC}"
+    tmux list-sessions 2>/dev/null || echo "  No active sessions"
+}
+
+run_clean() {
+    print_header
+    echo -e "${BOLD}Cleaning up...${NC}"
+    echo ""
+
+    local cleaned=0
+
+    # Kill stale tmux sessions (older than 7 days with no activity)
+    echo -e "${BOLD}Stale sessions:${NC}"
+    local stale=$(tmux list-sessions 2>/dev/null | grep -v attached)
+    if [[ -n "$stale" ]]; then
+        echo "$stale"
+        read -p "Kill detached sessions? [y/N] " -n 1 -r
+        echo ""
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            tmux list-sessions -F '#{session_name}' 2>/dev/null | while read -r sess; do
+                tmux has-session -t "$sess" 2>/dev/null && \
+                ! tmux list-clients -t "$sess" 2>/dev/null | grep -q . && \
+                tmux kill-session -t "$sess" && \
+                echo -e "  ${GREEN}✓${NC} Killed $sess"
+            done
+            cleaned=$((cleaned + 1))
+        fi
+    else
+        echo -e "  ${GREEN}✓${NC} No stale sessions"
+    fi
+    echo ""
+
+    # Clean npm cache
+    echo -e "${BOLD}Package caches:${NC}"
+    if has npm; then
+        local npm_cache=$(npm cache ls 2>/dev/null | wc -l | tr -d ' ')
+        if [[ "$npm_cache" -gt 100 ]]; then
+            echo -e "  npm cache: $npm_cache entries"
+            read -p "  Clean npm cache? [y/N] " -n 1 -r
+            echo ""
+            [[ $REPLY =~ ^[Yy]$ ]] && { npm cache clean --force 2>/dev/null; echo -e "  ${GREEN}✓${NC} Cleaned npm cache"; cleaned=$((cleaned + 1)); }
+        else
+            echo -e "  ${GREEN}✓${NC} npm cache is small"
+        fi
+    fi
+
+    # Clean bun cache
+    if has bun && [[ -d "$HOME/.bun/install/cache" ]]; then
+        local bun_size=$(du -sh "$HOME/.bun/install/cache" 2>/dev/null | cut -f1)
+        echo -e "  bun cache: $bun_size"
+    fi
+
+    echo ""
+    echo -e "${GREEN}Cleanup complete!${NC}"
+}
+
+run_env() {
+    print_header
+    echo -e "${BOLD}Environment Info:${NC}"
+    echo ""
+
+    echo -e "${BOLD}System:${NC}"
+    echo "  OS: $(uname -s) $(uname -r)"
+    echo "  Arch: $(uname -m)"
+    echo "  Shell: $SHELL"
+    echo ""
+
+    echo -e "${BOLD}Flywheel:${NC}"
+    echo "  Version: $VERSION"
+    echo "  Location: $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    echo "  Platform: $PLATFORM"
+    echo "  Package Manager: $PKG_MGR"
+    echo ""
+
+    echo -e "${BOLD}PATH directories:${NC}"
+    echo "$PATH" | tr ':' '\n' | head -10 | while read -r p; do
+        echo "  $p"
+    done
+    echo ""
+
+    echo -e "${BOLD}Key versions:${NC}"
+    echo "  node: $(node --version 2>/dev/null || echo 'not installed')"
+    echo "  bun: $(bun --version 2>/dev/null || echo 'not installed')"
+    echo "  go: $(go version 2>/dev/null | awk '{print $3}' || echo 'not installed')"
+    echo "  rust: $(rustc --version 2>/dev/null | awk '{print $2}' || echo 'not installed')"
+    echo "  python: $(python3 --version 2>/dev/null | awk '{print $2}' || echo 'not installed')"
+    echo ""
+
+    echo -e "${BOLD}Memory:${NC}"
+    if [[ "$PLATFORM" == "macos" ]]; then
+        local mem_total=$(sysctl -n hw.memsize 2>/dev/null)
+        local mem_gb=$((mem_total / 1073741824))
+        echo "  Total: ${mem_gb}GB"
+        echo "  Recommended agents: $((mem_gb / 2))"
+    else
+        local mem_total=$(grep MemTotal /proc/meminfo 2>/dev/null | awk '{print $2}')
+        local mem_gb=$((mem_total / 1048576))
+        echo "  Total: ${mem_gb}GB"
+        echo "  Recommended agents: $((mem_gb / 2))"
+    fi
+    echo ""
+}
+
 # Main
 detect_platform
 
@@ -645,24 +952,43 @@ case "${1:-doctor}" in
     update)    run_update ;;
     missing)   show_missing ;;
     uninstall) run_uninstall ;;
+    fix)       run_fix ;;
+    upgrade)   run_upgrade ;;
+    spawn)     run_spawn "$2" "$3" ;;
+    sessions)  run_sessions ;;
+    new)       run_new "$2" ;;
+    auth)      run_auth ;;
+    logs)      run_logs ;;
+    clean)     run_clean ;;
+    env)       run_env ;;
     version)   echo "flywheel $VERSION" ;;
     help|--help|-h)
         print_header
         echo "Usage: flywheel [command]"
         echo ""
-        echo "Commands:"
-        echo "  init       Initialize project (br init + AGENTS.md)"
+        echo -e "${BOLD}Setup:${NC}"
         echo "  install    Install all 33 ACFS tools"
         echo "  doctor     Health check (default)"
-        echo "  update     Update all tools"
-        echo "  missing    Show install commands"
-        echo "  uninstall  Remove everything (tools, agents, flywheel itself)"
-        echo "  version    Show version"
+        echo "  fix        Auto-fix PATH and shell integration issues"
+        echo "  update     Update all installed tools"
+        echo "  upgrade    Update flywheel itself"
+        echo "  uninstall  Remove everything"
         echo ""
-        echo "Project workflow:"
-        echo "  cd your-project"
-        echo "  flywheel init"
-        echo "  ntm spawn myproject --cc=2"
+        echo -e "${BOLD}Projects:${NC}"
+        echo "  new NAME   Create new project directory + init"
+        echo "  init       Initialize current directory"
+        echo "  spawn NAME Spawn Claude agents (default: 2)"
+        echo ""
+        echo -e "${BOLD}Info:${NC}"
+        echo "  sessions   List active tmux sessions"
+        echo "  auth       Check AI agent authentication"
+        echo "  logs       View recent session logs"
+        echo "  env        Show environment info"
+        echo "  missing    Show manual install commands"
+        echo ""
+        echo -e "${BOLD}Maintenance:${NC}"
+        echo "  clean      Remove caches and stale sessions"
+        echo "  version    Show version"
         echo ""
         echo "Tools: https://agent-flywheel.com/tldr"
         ;;

@@ -1,6 +1,6 @@
 # Agentic Coding Flywheel Setup - Simplified
 
-![Version](https://img.shields.io/badge/Version-2.1.0-bd93f9?style=for-the-badge)
+![Version](https://img.shields.io/badge/Version-2.2.0-bd93f9?style=for-the-badge)
 ![Platform](https://img.shields.io/badge/Platform-macOS%20|%20Linux%20|%20WSL-6272a4?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-50fa7b?style=for-the-badge)
 ![Shell](https://img.shields.io/badge/Shell-Bash-ff79c6?style=for-the-badge)
@@ -131,14 +131,36 @@ ubs scan .                        # Scan for bugs before commit
 
 ## Commands
 
+**Setup:**
 | Command | Description |
 |---------|-------------|
-| `flywheel doctor` | Health check — see what's installed |
 | `flywheel install` | Install all 33 tools |
-| `flywheel init` | Initialize project (br + AGENTS.md) |
-| `flywheel update` | Update all tools |
+| `flywheel doctor` | Health check — see what's installed |
+| `flywheel fix` | Auto-fix PATH and shell integration issues |
+| `flywheel update` | Update all installed tools |
+| `flywheel upgrade` | Update flywheel itself |
+| `flywheel uninstall` | Remove everything |
+
+**Projects:**
+| Command | Description |
+|---------|-------------|
+| `flywheel new NAME` | Create new project directory + init |
+| `flywheel init` | Initialize current directory |
+| `flywheel spawn NAME` | Spawn Claude agents (default: 2) |
+
+**Info:**
+| Command | Description |
+|---------|-------------|
+| `flywheel sessions` | List active tmux sessions |
+| `flywheel auth` | Check AI agent authentication |
+| `flywheel logs` | View recent session logs |
+| `flywheel env` | Show environment info |
 | `flywheel missing` | Show manual install commands |
-| `flywheel uninstall` | Remove everything (tools + flywheel) |
+
+**Maintenance:**
+| Command | Description |
+|---------|-------------|
+| `flywheel clean` | Remove caches and stale sessions |
 
 ---
 
