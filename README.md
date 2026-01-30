@@ -10,7 +10,7 @@ Cross-platform installer for [Dicklesworthstone's Agentic Coding Flywheel](https
 
 ```bash
 # Clone the repo
-git clone https://github.com/mcruz/flywheel ~/Developer/flywheel
+git clone https://github.com/Acelogic/flywheel ~/Developer/flywheel
 
 # Add to PATH (add this to your ~/.zshrc or ~/.bashrc)
 export PATH="$PATH:$HOME/Developer/flywheel"
