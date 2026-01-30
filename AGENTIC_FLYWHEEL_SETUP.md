@@ -1,6 +1,8 @@
-# Agentic Coding Flywheel - Complete Installation Guide
+# Agentic Coding Flywheel Setup - Simplified Installation Guide
 
-Cross-platform installer for [Dicklesworthstone's Agentic Coding Flywheel](https://agent-flywheel.com/) - 33 tools for AI-powered development with multi-agent orchestration, persistent memory, and task management.
+Simplified cross-platform installer for [Dicklesworthstone's Agentic Coding Flywheel](https://agent-flywheel.com/) - 33 tools for AI-powered development with multi-agent orchestration, persistent memory, and task management.
+
+> **No VPS required.** Runs locally on macOS, Linux, and WSL.
 
 **Official Website:** https://agent-flywheel.com/
 

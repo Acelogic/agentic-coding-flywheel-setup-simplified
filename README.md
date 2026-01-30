@@ -1,4 +1,4 @@
-# Agentic Coding Flywheel
+# Agentic Coding Flywheel Setup - Simplified
 
 ![Version](https://img.shields.io/badge/Version-2.1.0-bd93f9?style=for-the-badge)
 ![Platform](https://img.shields.io/badge/Platform-macOS%20|%20Linux%20|%20WSL-6272a4?style=for-the-badge)
@@ -9,8 +9,9 @@
   <strong><a href="https://agent-flywheel.com">agent-flywheel.com</a></strong> — Official ACFS website & tool inventory
 </p>
 
-> **Cross-platform installer for [Dicklesworthstone's Agentic Coding Flywheel](https://github.com/Dicklesworthstone/agentic_coding_flywheel_setup).**
-> Run multiple AI agents in parallel with orchestration, task tracking, persistent memory, and safety guardrails.
+> **Simplified cross-platform installer for [Dicklesworthstone's Agentic Coding Flywheel](https://github.com/Dicklesworthstone/agentic_coding_flywheel_setup).**
+>
+> The original ACFS requires an Ubuntu VPS. This version runs locally on **macOS, Linux, and WSL** with a single command.
 
 ---
 
