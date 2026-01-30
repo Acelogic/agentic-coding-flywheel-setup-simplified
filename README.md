@@ -19,15 +19,61 @@
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Acelogic/agentic-coding-flywheel-setup-simplified/main/install.sh | bash
+source ~/.zshrc
+flywheel install
 ```
 
-Then install all 33 tools:
+That's it. The installer is **idempotent**—safe to re-run anytime.
+
+---
+
+## Getting Started
+
+### 1. Check Your Setup
 
 ```bash
-source ~/.zshrc && flywheel install
+flywheel doctor
 ```
 
-The installer is **idempotent**—safe to re-run anytime.
+Shows installed tools, PATH config, shell integrations, auth status, and more.
+
+### 2. Fix Any Issues
+
+```bash
+flywheel fix
+```
+
+Auto-adds missing PATH entries and shell integrations to your rc file.
+
+### 3. Create a New Project
+
+```bash
+flywheel new my-project
+cd my-project
+```
+
+Or initialize an existing project:
+
+```bash
+cd existing-project
+flywheel init
+```
+
+### 4. Spawn AI Agents
+
+```bash
+flywheel spawn my-project      # Spawns 2 Claude agents
+# or with more agents:
+flywheel spawn my-project 3    # Spawns 3 Claude agents
+```
+
+### 5. Start Working
+
+```bash
+br create "Build user auth" --type feature
+ntm send my-project --cc "Check br ready and start working on the auth task"
+ntm dashboard my-project       # Monitor progress
+```
 
 ---
 
@@ -87,80 +133,90 @@ The original [ACFS](https://github.com/Dicklesworthstone/agentic_coding_flywheel
 
 ---
 
-## Usage
+## Commands
 
-### Initialize a Project
+### Setup
 
-```bash
-cd ~/your-project
-flywheel init
+| Command | Description |
+|---------|-------------|
+| `flywheel install` | Install all 33 tools |
+| `flywheel doctor` | Health check (tools, PATH, auth, versions, sessions) |
+| `flywheel fix` | Auto-fix PATH and shell integration issues |
+| `flywheel update` | Update all installed tools |
+| `flywheel upgrade` | Update flywheel itself (git pull) |
+| `flywheel uninstall` | Remove everything |
+
+### Projects
+
+| Command | Description |
+|---------|-------------|
+| `flywheel new NAME` | Create new project directory + git init + flywheel init |
+| `flywheel init` | Initialize current directory (br + AGENTS.md + .claude/) |
+| `flywheel spawn NAME [N]` | Spawn N Claude agents (default: 2) |
+
+### Info
+
+| Command | Description |
+|---------|-------------|
+| `flywheel doctor` | Full health check with versions, auth, sessions |
+| `flywheel sessions` | List active tmux sessions with management commands |
+| `flywheel auth` | Check authentication status for all AI agents |
+| `flywheel logs` | View recent CASS sessions and Claude logs |
+| `flywheel env` | Environment dump (system, versions, RAM, paths) |
+| `flywheel missing` | Show manual install commands for missing tools |
+
+### Maintenance
+
+| Command | Description |
+|---------|-------------|
+| `flywheel clean` | Kill stale sessions, clean package caches |
+| `flywheel version` | Show flywheel version |
+
+---
+
+## Doctor Output
+
+`flywheel doctor` gives you a complete health check:
+
 ```
-
-Creates:
-- `.beads/` — Task tracking database
-- `AGENTS.md` — Project context for AI agents
-- `.claude/` — Claude-specific settings
-
-### Spawn AI Agents
-
-```bash
-# Start coordination server
-am
-
-# Spawn 2 Claude agents
-ntm spawn my-project --cc=2
-
-# Send them work
-ntm send my-project --cc "Check br ready for tasks and start working."
-
-# Monitor
-ntm dashboard my-project
-```
-
-### Daily Workflow
-
-```bash
-br ready                          # See available tasks
-br create "Add auth" --type feature
-bv                                # Open task TUI
-cm context "implementing auth"    # Get memory context
-ubs scan .                        # Scan for bugs before commit
+✓ 33/33 tools installed
+✓ PATH configured (local/bin, go/bin, cargo/bin)
+✓ Shell integrations (ntm, zoxide, atuin)
+✓ Tool versions (claude 2.1.20, br 0.1.12, etc.)
+✓ Auth status (claude, codex, gemini)
+✓ Active sessions
+✓ Project status (.beads/, AGENTS.md)
+○ Tool freshness (flags tools >30 days old)
 ```
 
 ---
 
-## Commands
+## Daily Workflow
 
-**Setup:**
-| Command | Description |
-|---------|-------------|
-| `flywheel install` | Install all 33 tools |
-| `flywheel doctor` | Health check — see what's installed |
-| `flywheel fix` | Auto-fix PATH and shell integration issues |
-| `flywheel update` | Update all installed tools |
-| `flywheel upgrade` | Update flywheel itself |
-| `flywheel uninstall` | Remove everything |
+```bash
+# Morning: Check what's running
+flywheel sessions
+flywheel doctor
 
-**Projects:**
-| Command | Description |
-|---------|-------------|
-| `flywheel new NAME` | Create new project directory + init |
-| `flywheel init` | Initialize current directory |
-| `flywheel spawn NAME` | Spawn Claude agents (default: 2) |
+# Start work
+cd my-project
+br ready                          # See available tasks
+flywheel spawn my-project         # Start agents
 
-**Info:**
-| Command | Description |
-|---------|-------------|
-| `flywheel sessions` | List active tmux sessions |
-| `flywheel auth` | Check AI agent authentication |
-| `flywheel logs` | View recent session logs |
-| `flywheel env` | Show environment info |
-| `flywheel missing` | Show manual install commands |
+# Create tasks
+br create "Add user auth" --type feature
+br create "Fix login bug" --type bug
 
-**Maintenance:**
-| Command | Description |
-|---------|-------------|
-| `flywheel clean` | Remove caches and stale sessions |
+# Monitor agents
+ntm dashboard my-project
+
+# Before committing
+ubs scan .                        # Scan for bugs
+cm context "what I worked on"     # Update memory
+
+# End of day
+flywheel clean                    # Kill stale sessions
+```
 
 ---
 
@@ -168,20 +224,11 @@ ubs scan .                        # Scan for bugs before commit
 
 | Platform | Package Manager | Status |
 |----------|-----------------|--------|
-| macOS (Intel & Apple Silicon) | Homebrew | ✓ |
-| Ubuntu / Debian | apt | ✓ |
-| Fedora / RHEL | dnf | ✓ |
-| Arch Linux | pacman | ✓ |
-| Windows (WSL) | apt | ✓ |
-
----
-
-## Documentation
-
-| File | Description |
-|------|-------------|
-| [`AGENTIC_FLYWHEEL_SETUP.md`](AGENTIC_FLYWHEEL_SETUP.md) | Complete installation guide (with/without flywheel) |
-| [`NTM_WORKFLOW_GUIDE.md`](NTM_WORKFLOW_GUIDE.md) | Multi-agent workflow patterns & real-world scenarios |
+| macOS (Intel & Apple Silicon) | Homebrew | ✓ Full support |
+| Ubuntu / Debian | apt | ✓ Full support |
+| Fedora / RHEL | dnf | ✓ Full support |
+| Arch Linux | pacman | ✓ Full support |
+| Windows (WSL) | apt | ✓ Full support |
 
 ---
 
@@ -193,8 +240,20 @@ ubs scan .                        # Scan for bugs before commit
 | VPS required | Yes | No (runs locally) |
 | Install method | curl \| bash | curl \| bash |
 | Tools | 30+ | 33 |
-| Idempotent | ✓ | ✓ |
-| Doctor command | ✓ | ✓ |
+| Doctor command | ✓ | ✓ Enhanced (versions, auth, sessions) |
+| Auto-fix command | ✗ | ✓ `flywheel fix` |
+| Project scaffolding | ✗ | ✓ `flywheel new` |
+| Session management | ✗ | ✓ `flywheel sessions/clean` |
+| Self-update | ✗ | ✓ `flywheel upgrade` |
+
+---
+
+## Documentation
+
+| File | Description |
+|------|-------------|
+| [`AGENTIC_FLYWHEEL_SETUP.md`](AGENTIC_FLYWHEEL_SETUP.md) | Complete installation guide (with/without flywheel) |
+| [`NTM_WORKFLOW_GUIDE.md`](NTM_WORKFLOW_GUIDE.md) | Multi-agent workflow patterns & real-world scenarios |
 
 ---
 
