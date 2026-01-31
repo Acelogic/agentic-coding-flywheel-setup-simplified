@@ -1,6 +1,6 @@
 # Agentic Coding Flywheel Setup - Simplified
 
-![Version](https://img.shields.io/badge/Version-2.3.0-bd93f9?style=for-the-badge)
+![Version](https://img.shields.io/badge/Version-2.4.0-bd93f9?style=for-the-badge)
 ![Platform](https://img.shields.io/badge/Platform-macOS%20|%20Linux%20|%20WSL-6272a4?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-50fa7b?style=for-the-badge)
 ![Shell](https://img.shields.io/badge/Shell-Bash-ff79c6?style=for-the-badge)
@@ -67,20 +67,24 @@ flywheel start    # Or just `flywheel` in an initialized project
 
 This outputs context for the **admin agent** - the orchestrator that manages work.
 
-### 5. Spawn Worker Agents
+### 5. Ask User & Spawn Worker Agents
 
-The admin agent spawns workers to do the actual coding:
+The admin agent should ASK the user which agents they want, then spawn:
 
 ```bash
-ntm spawn my-project --cc=2    # Spawn 2 Claude worker agents
+# Use --no-user since admin is in a separate session
+ntm spawn my-project --cc=2 --no-user    # 2 Claude workers
+ntm spawn my-project --cod=2 --no-user   # 2 Codex workers
+ntm spawn my-project --gmi=1 --no-user   # 1 Gemini worker
+# Or mix: --cc=2 --gmi=1 --no-user
 ```
 
 ### 6. Assign Work to Workers
 
 ```bash
 br create "Build user auth" --type feature
-ntm send my-project --pane=1 "Check br ready and implement the auth task"
-ntm send my-project --pane=2 "Check br ready and implement the next task"
+ntm send my-project --pane=0 "Check br ready and implement the auth task"
+ntm send my-project --pane=1 "Check br ready and implement the next task"
 ```
 
 ### 7. Monitor Progress
@@ -288,16 +292,16 @@ flywheel fix                      # Fix any issues
 cd my-project
 flywheel start                    # Get admin context
 
-# Create tasks (as admin)
+# Ask user what agents they want, then create tasks
 br create "Add user auth" --type feature
 br create "Fix login bug" --type bug
 
-# Spawn worker agents
-ntm spawn my-project --cc=2       # 2 Claude workers
+# Spawn worker agents (--no-user since admin is separate)
+ntm spawn my-project --cc=2 --no-user   # 2 Claude workers (or user's choice)
 
-# Assign work to workers
-ntm send my-project --pane=1 "Check br ready, claim auth task, implement it"
-ntm send my-project --pane=2 "Check br ready, claim bug task, fix it"
+# Assign work to workers (panes start at 0 with --no-user)
+ntm send my-project --pane=0 "Check br ready, claim auth task, implement it"
+ntm send my-project --pane=1 "Check br ready, claim bug task, fix it"
 
 # Monitor progress
 ntm status my-project             # Worker status

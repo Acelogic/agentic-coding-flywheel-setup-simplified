@@ -102,27 +102,36 @@ Before spawning workers, the admin agent should:
 # 1. Get admin context
 flywheel start                    # Outputs admin agent instructions
 
-# 2. Check/create tasks
+# 2. ASK the user what agents they want
+# "Which AI agents? (Claude, Codex, Gemini) How many?"
+
+# 3. Check/create tasks
 br ready                          # See existing tasks
 br create "Task description" --type feature
 
-# 3. Spawn workers
-ntm spawn myproject --cc=2        # 2 Claude workers
+# 4. Spawn workers (use --no-user since admin is separate)
+ntm spawn myproject --cc=2 --no-user        # 2 Claude workers (example)
+# Other options based on user preference:
+# ntm spawn myproject --cod=2 --no-user     # 2 Codex workers
+# ntm spawn myproject --cc=1 --gmi=1 --no-user  # 1 Claude + 1 Gemini
 
-# 4. Assign work (DO NOT code yourself!)
+# 5. Assign work (DO NOT code yourself!)
+ntm send myproject --pane=0 "Read ARCHITECTURE.md, run br ready, claim a task, implement it"
 ntm send myproject --pane=1 "Read ARCHITECTURE.md, run br ready, claim a task, implement it"
-ntm send myproject --pane=2 "Read ARCHITECTURE.md, run br ready, claim a task, implement it"
 
-# 5. Monitor
+# 6. Monitor
 ntm status myproject              # Check worker status
 br list                           # Check task status
 
-# 6. Review when workers finish
+# 7. Review when workers finish
 git diff                          # See what workers produced
 ubs scan .                        # Check for bugs
 ```
 
-**Remember:** As admin, you orchestrate. Workers implement.
+**Remember:**
+- Ask user which agents and how many before spawning
+- Use `--no-user` since you (admin) are in a separate session
+- You orchestrate, workers implement
 
 ---
 

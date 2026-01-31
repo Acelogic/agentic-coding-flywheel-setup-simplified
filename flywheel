@@ -11,7 +11,7 @@
 #   ./flywheel missing   # Show what's missing
 
 set +e
-VERSION="2.3.0"
+VERSION="2.4.0"
 
 # Colors
 if [[ -t 1 ]]; then
@@ -1105,6 +1105,14 @@ run_start() {
         grep -q '"express"' package.json 2>/dev/null && tech_stack="${tech_stack:+$tech_stack + }Express"
     }
 
+    # Detect available AI agents
+    local available_agents=""
+    local agent_flags=""
+    has claude && { available_agents="${available_agents}Claude Code (--cc), "; agent_flags="${agent_flags}--cc "; }
+    has codex && { available_agents="${available_agents}Codex (--cod), "; agent_flags="${agent_flags}--cod "; }
+    has gemini && { available_agents="${available_agents}Gemini (--gmi), "; agent_flags="${agent_flags}--gmi "; }
+    available_agents="${available_agents%, }"  # Remove trailing comma
+
     # Output context for agent injection
     cat << 'WORKFLOW_HEADER'
 # Agentic Coding Flywheel - Admin Agent Context
@@ -1114,13 +1122,44 @@ run_start() {
 You are the orchestrator/coordinator. **DO NOT write code or make changes directly.**
 
 Your role is to:
-1. **Spawn worker agents** using NTM to do the actual work
-2. **Create and manage tasks** using `br`
-3. **Monitor progress** and coordinate between workers
-4. **Review results** from worker agents
+1. **Ask the user** what agents they want and how many
+2. **Spawn worker agents** using NTM to do the actual work
+3. **Create and manage tasks** using `br`
+4. **Monitor progress** and coordinate between workers
+5. **Review results** from worker agents
 
 The actual coding work should be done by worker agents you spawn via NTM.
 
+---
+
+WORKFLOW_HEADER
+
+    # Output available agents section
+    echo "## Available AI Agents"
+    echo ""
+    if [[ -n "$available_agents" ]]; then
+        echo "**Installed:** $available_agents"
+        echo ""
+        echo "**Spawn examples** (use \`--no-user\` since you're the admin in a separate session):"
+        echo '```bash'
+        has claude && echo "ntm spawn $project_name --cc=2 --no-user      # 2 Claude workers"
+        has codex && echo "ntm spawn $project_name --cod=2 --no-user     # 2 Codex workers"
+        has gemini && echo "ntm spawn $project_name --gmi=1 --no-user     # 1 Gemini worker"
+        echo ""
+        echo "# Mix agents:"
+        has claude && has gemini && echo "ntm spawn $project_name --cc=2 --gmi=1 --no-user   # 2 Claude + 1 Gemini"
+        has claude && has codex && echo "ntm spawn $project_name --cc=1 --cod=2 --no-user   # 1 Claude + 2 Codex"
+        echo '```'
+    else
+        echo "**No AI agents installed!** Run: flywheel install"
+    fi
+    echo ""
+    echo "⚠️ **IMPORTANT:** Before spawning, ASK the user:"
+    echo "- Which agent type(s) do they want? (Claude, Codex, Gemini)"
+    echo "- How many workers should be spawned?"
+    echo ""
+
+    cat << 'WORKFLOW_COMMANDS'
 ---
 
 ## Your Admin Commands
@@ -1134,10 +1173,10 @@ br update ID --status S     # Update status (S: todo|in_progress|done)
 
 # Spawn Worker Agents (THIS IS HOW WORK GETS DONE)
 ntm spawn PROJECT --cc=N    # Spawn N Claude worker agents
-ntm send PROJECT --cc "msg" # Send instructions to workers
+ntm spawn PROJECT --cod=N   # Spawn N Codex worker agents
+ntm spawn PROJECT --gmi=N   # Spawn N Gemini worker agents
 ntm send PROJECT --pane=N "msg"  # Send to specific worker
 ntm status PROJECT          # Check worker status
-ntm dashboard PROJECT       # Monitor all workers (needs TTY)
 
 # Memory & Context (share with workers)
 cm context "task" --json    # Get relevant memory/patterns
@@ -1150,6 +1189,11 @@ cm context "task" --json    # Get relevant memory/patterns
 
 ## Admin Workflow
 
+### Step 0: Ask User About Workers
+Before spawning, ask the user:
+- "Which AI agents should I use? (Claude Code, Codex, Gemini)"
+- "How many workers do you want?"
+
 ### Step 1: Setup Tasks
 ```bash
 br ready                    # Check existing tasks
@@ -1157,9 +1201,10 @@ br create "Task 1" --type feature
 br create "Task 2" --type feature
 ```
 
-### Step 2: Spawn Workers
+### Step 2: Spawn Workers (Based on User Choice)
 ```bash
-ntm spawn myproject --cc=2  # Spawn 2 Claude workers
+# Use --no-user since you (admin) are in a separate session
+ntm spawn myproject --cc=2 --no-user  # If user wants 2 Claude workers
 ```
 
 ### Step 3: Assign Work to Workers
@@ -1193,7 +1238,7 @@ ubs scan .                  # Scan for bugs before committing
 
 ---
 
-WORKFLOW_HEADER
+WORKFLOW_COMMANDS
 
     # Project-specific context
     echo "## Current Project: $project_name"
