@@ -483,12 +483,12 @@ run_install() {
     has codex || { echo "Installing codex..."; npm install -g @openai/codex 2>/dev/null || bun install -g @openai/codex; }
     has gemini || { echo "Installing gemini..."; npm install -g @google/gemini-cli 2>/dev/null || bun install -g @google/gemini-cli; }
 
-    # Core Stack (prefer homebrew for version consistency)
-    has ntm || { echo "Installing ntm..."; brew install dicklesworthstone/tap/ntm 2>/dev/null || curl -fsSL "https://raw.githubusercontent.com/Dicklesworthstone/ntm/main/install.sh" | bash -s -- --easy-mode; }
+    # Core Stack (prefer homebrew on macOS for version consistency, curl elsewhere)
+    has ntm || { echo "Installing ntm..."; [[ "$PKG_MGR" == "brew" ]] && brew install dicklesworthstone/tap/ntm 2>/dev/null || curl -fsSL "https://raw.githubusercontent.com/Dicklesworthstone/ntm/main/install.sh" | bash -s -- --easy-mode; }
     has br || { echo "Installing br..."; curl -fsSL "https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh" | bash; }
-    has bv || { echo "Installing bv..."; brew install dicklesworthstone/tap/bv 2>/dev/null || curl -fsSL "https://raw.githubusercontent.com/Dicklesworthstone/beads_viewer/main/install.sh" | bash; }
-    has cass || { echo "Installing cass..."; brew install dicklesworthstone/tap/cass 2>/dev/null || curl -fsSL "https://raw.githubusercontent.com/Dicklesworthstone/coding_agent_session_search/main/install.sh" | bash -s -- --easy-mode; }
-    has cm || { echo "Installing cm..."; brew install dicklesworthstone/tap/cm 2>/dev/null || curl -fsSL "https://raw.githubusercontent.com/Dicklesworthstone/cass_memory_system/main/install.sh" | bash -s -- --easy-mode; }
+    has bv || { echo "Installing bv..."; [[ "$PKG_MGR" == "brew" ]] && brew install dicklesworthstone/tap/bv 2>/dev/null || curl -fsSL "https://raw.githubusercontent.com/Dicklesworthstone/beads_viewer/main/install.sh" | bash; }
+    has cass || { echo "Installing cass..."; [[ "$PKG_MGR" == "brew" ]] && brew install dicklesworthstone/tap/cass 2>/dev/null || curl -fsSL "https://raw.githubusercontent.com/Dicklesworthstone/coding_agent_session_search/main/install.sh" | bash -s -- --easy-mode; }
+    has cm || { echo "Installing cm..."; [[ "$PKG_MGR" == "brew" ]] && brew install dicklesworthstone/tap/cm 2>/dev/null || curl -fsSL "https://raw.githubusercontent.com/Dicklesworthstone/cass_memory_system/main/install.sh" | bash -s -- --easy-mode; }
 
     # Safety
     has dcg || { echo "Installing dcg..."; curl -fsSL "https://raw.githubusercontent.com/Dicklesworthstone/destructive_command_guard/main/install.sh" | bash -s -- --easy-mode; }
@@ -542,24 +542,46 @@ show_missing() {
         has "$cmd" || { echo -e "${YELLOW}$name:${NC}"; echo -e "  ${CYAN}$install${NC}"; echo ""; }
     }
 
-    show "tmux" "tmux" "brew install tmux"
-    show "fzf" "fzf" "brew install fzf"
-    show "go" "go" "brew install go"
+    # Platform-aware show: prefers brew on macOS, curl fallback otherwise
+    show_platform() {
+        local name=$1 cmd=$2 brew_cmd=$3 curl_cmd=$4
+        if has "$cmd"; then return; fi
+        echo -e "${YELLOW}$name:${NC}"
+        if [[ "$PKG_MGR" == "brew" ]]; then
+            echo -e "  ${CYAN}$brew_cmd${NC}"
+        else
+            echo -e "  ${CYAN}$curl_cmd${NC}"
+        fi
+        echo ""
+    }
+
+    # Platform-aware pkg manager commands
+    local pkg_tmux="brew install tmux"
+    local pkg_fzf="brew install fzf"
+    local pkg_go="brew install go"
+    local pkg_zoxide="brew install zoxide"
+    local pkg_atuin="brew install atuin"
+    [[ "$PKG_MGR" == "apt" ]] && { pkg_tmux="sudo apt install tmux"; pkg_fzf="sudo apt install fzf"; pkg_go="sudo apt install golang-go"; pkg_zoxide="curl -fsSL https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | bash"; pkg_atuin="curl -fsSL https://setup.atuin.sh | bash"; }
+    [[ "$PKG_MGR" == "dnf" ]] && { pkg_tmux="sudo dnf install tmux"; pkg_fzf="sudo dnf install fzf"; pkg_go="sudo dnf install golang"; pkg_zoxide="curl -fsSL https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | bash"; pkg_atuin="curl -fsSL https://setup.atuin.sh | bash"; }
+
+    show "tmux" "tmux" "$pkg_tmux"
+    show "fzf" "fzf" "$pkg_fzf"
+    show "go" "go" "$pkg_go"
     show "bun" "bun" "curl -fsSL https://bun.sh/install | bash"
     show "uv" "uv" "curl -LsSf https://astral.sh/uv/install.sh | sh"
     show "cargo" "cargo" "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh"
-    show "zoxide" "zoxide" "brew install zoxide"
-    show "atuin" "atuin" "brew install atuin"
+    show "zoxide" "zoxide" "$pkg_zoxide"
+    show "atuin" "atuin" "$pkg_atuin"
     show "claude" "claude" "npm install -g @anthropic-ai/claude-code"
     show "codex" "codex" "npm install -g @openai/codex"
     show "gemini" "gemini" "npm install -g @google/gemini-cli"
-    show "ntm" "ntm" "brew install dicklesworthstone/tap/ntm"
+    show_platform "ntm" "ntm" "brew install dicklesworthstone/tap/ntm" "curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/ntm/main/install.sh | bash -s -- --easy-mode"
     show "br" "br" "curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash"
-    show "bv" "bv" "brew install dicklesworthstone/tap/bv"
-    show "cass" "cass" "brew install dicklesworthstone/tap/cass"
-    show "cm" "cm" "brew install dicklesworthstone/tap/cm"
+    show_platform "bv" "bv" "brew install dicklesworthstone/tap/bv" "curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_viewer/main/install.sh | bash"
+    show_platform "cass" "cass" "brew install dicklesworthstone/tap/cass" "curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/coding_agent_session_search/main/install.sh | bash -s -- --easy-mode"
+    show_platform "cm" "cm" "brew install dicklesworthstone/tap/cm" "curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/cass_memory_system/main/install.sh | bash -s -- --easy-mode"
     show "dcg" "dcg" "curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/destructive_command_guard/main/install.sh | bash -s -- --easy-mode"
-    show "ubs" "ubs" "brew install dicklesworthstone/tap/ubs"
+    show_platform "ubs" "ubs" "brew install dicklesworthstone/tap/ubs" "curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/ultimate_bug_scanner/master/install.sh | bash"
     show "slb" "slb" "go install github.com/Dicklesworthstone/slb/cmd/slb@latest"
     show "pt" "pt" "curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/process_triage/master/install.sh | bash"
     show "ms" "ms" "curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/meta_skill/main/scripts/install.sh | bash"
@@ -1035,59 +1057,70 @@ gpt52 = \"gpt-5.2-codex\"" "$ntm_config_path"
     fixed=$((fixed + ntm_fixed))
     echo ""
 
-    # === Binary version fixes (upgrade local to homebrew) ===
-    echo -e "${BOLD}Binary Versions (local vs homebrew):${NC}"
-    local bin_fixed=0
+    # === Binary version fixes (upgrade local to homebrew - macOS only) ===
+    if [[ "$PKG_MGR" == "brew" ]]; then
+        echo -e "${BOLD}Binary Versions (local vs homebrew):${NC}"
+        local bin_fixed=0
 
-    # Tools that should prefer homebrew over local
-    upgrade_to_brew() {
-        local tool=$1
-        local local_path="$HOME/.local/bin/$tool"
-        local brew_path="/opt/homebrew/bin/$tool"
+        # Determine brew bin path (Intel vs Apple Silicon)
+        local brew_bin="/opt/homebrew/bin"
+        [[ "$ARCH" == "amd64" ]] && brew_bin="/usr/local/bin"
 
-        # Check if local version exists and homebrew version is available
-        if [[ -f "$local_path" ]] && brew list "dicklesworthstone/tap/$tool" &>/dev/null; then
-            local local_ver=$("$local_path" --version 2>/dev/null | head -1 || "$local_path" version 2>/dev/null | head -1 || echo "?")
-            local brew_ver=$("$brew_path" --version 2>/dev/null | head -1 || "$brew_path" version 2>/dev/null | head -1 || echo "?")
+        # Tools that should prefer homebrew over local
+        upgrade_to_brew() {
+            local tool=$1
+            local local_path="$HOME/.local/bin/$tool"
+            local brew_path="$brew_bin/$tool"
 
-            if [[ "$local_ver" != "$brew_ver" ]]; then
-                echo -e "  ${YELLOW}○${NC} $tool: local=$local_ver, brew=$brew_ver"
-                read -p "    Remove local and use homebrew? [Y/n] " -n 1 -r
-                echo ""
-                if [[ ! $REPLY =~ ^[Nn]$ ]]; then
-                    rm -f "$local_path"
-                    echo -e "    ${GREEN}✓${NC} Removed $local_path (now using brew)"
-                    bin_fixed=$((bin_fixed + 1))
+            # Check if local version exists and homebrew version is available
+            if [[ -f "$local_path" ]] && brew list "dicklesworthstone/tap/$tool" &>/dev/null; then
+                local local_ver=$("$local_path" --version 2>/dev/null | head -1 || "$local_path" version 2>/dev/null | head -1 || echo "?")
+                local brew_ver=$("$brew_path" --version 2>/dev/null | head -1 || "$brew_path" version 2>/dev/null | head -1 || echo "?")
+
+                if [[ "$local_ver" != "$brew_ver" ]]; then
+                    echo -e "  ${YELLOW}○${NC} $tool: local=$local_ver, brew=$brew_ver"
+                    read -p "    Remove local and use homebrew? [Y/n] " -n 1 -r
+                    echo ""
+                    if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+                        rm -f "$local_path"
+                        echo -e "    ${GREEN}✓${NC} Removed $local_path (now using brew)"
+                        bin_fixed=$((bin_fixed + 1))
+                    fi
+                else
+                    echo -e "  ${GREEN}✓${NC} $tool: versions match"
+                fi
+            elif [[ -f "$local_path" ]] && [[ -f "$brew_path" ]]; then
+                # Brew installed but not via tap, or tap not recognized
+                echo -e "  ${YELLOW}○${NC} $tool: both local and brew exist, check manually"
+            elif [[ -f "$local_path" ]]; then
+                # Only local exists, suggest installing via brew
+                if brew info "dicklesworthstone/tap/$tool" &>/dev/null 2>&1; then
+                    echo -e "  ${YELLOW}○${NC} $tool: local only, brew available"
+                    read -p "    Install via homebrew and remove local? [Y/n] " -n 1 -r
+                    echo ""
+                    if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+                        brew install "dicklesworthstone/tap/$tool" 2>/dev/null && rm -f "$local_path"
+                        echo -e "    ${GREEN}✓${NC} Installed $tool via brew, removed local"
+                        bin_fixed=$((bin_fixed + 1))
+                    fi
                 fi
             else
-                echo -e "  ${GREEN}✓${NC} $tool: versions match"
+                echo -e "  ${GREEN}✓${NC} $tool: using brew or not installed"
             fi
-        elif [[ -f "$local_path" ]] && [[ -f "$brew_path" ]]; then
-            # Brew installed but not via tap, or tap not recognized
-            echo -e "  ${YELLOW}○${NC} $tool: both local and brew exist, check manually"
-        elif [[ -f "$local_path" ]]; then
-            # Only local exists, suggest installing via brew
-            if brew info "dicklesworthstone/tap/$tool" &>/dev/null 2>&1; then
-                echo -e "  ${YELLOW}○${NC} $tool: local only, brew available"
-                read -p "    Install via homebrew and remove local? [Y/n] " -n 1 -r
-                echo ""
-                if [[ ! $REPLY =~ ^[Nn]$ ]]; then
-                    brew install "dicklesworthstone/tap/$tool" 2>/dev/null && rm -f "$local_path"
-                    echo -e "    ${GREEN}✓${NC} Installed $tool via brew, removed local"
-                    bin_fixed=$((bin_fixed + 1))
-                fi
-            fi
-        else
-            echo -e "  ${GREEN}✓${NC} $tool: using brew or not installed"
-        fi
-    }
+        }
 
-    # Check tools that have homebrew versions
-    for tool in ntm cass cm bv ubs; do
-        upgrade_to_brew "$tool"
-    done
-    fixed=$((fixed + bin_fixed))
-    echo ""
+        # Check tools that have homebrew versions
+        for tool in ntm cass cm bv ubs; do
+            upgrade_to_brew "$tool"
+        done
+        fixed=$((fixed + bin_fixed))
+        echo ""
+    else
+        # Non-homebrew systems: check for updates via curl scripts
+        echo -e "${BOLD}Binary Versions:${NC}"
+        echo -e "  ${CYAN}Tip:${NC} Run ${CYAN}flywheel update${NC} to update tools via install scripts"
+        echo ""
+    fi
 
     # === Summary ===
     echo -e "${BOLD}Summary:${NC}"
