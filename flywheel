@@ -11,7 +11,7 @@
 #   ./flywheel missing   # Show what's missing
 
 set +e
-VERSION="2.5.1"
+VERSION="2.5.2"
 
 # Colors
 if [[ -t 1 ]]; then
@@ -752,9 +752,13 @@ fix_mail_server() {
         fi
     fi
 
-    # Check for running processes
+    # Check if server is running (HTTP check is more reliable, especially on WSL)
     local mail_pids=$(pgrep -f "mcp_agent_mail" 2>/dev/null)
-    if [[ -z "$mail_pids" ]]; then
+    local http_ok=false
+    if curl -s --connect-timeout 2 -o /dev/null "http://localhost:8765/api/health" 2>/dev/null; then
+        http_ok=true
+    fi
+    if [[ -z "$mail_pids" ]] && [[ "$http_ok" == false ]]; then
         needs_restart=true
     fi
 
@@ -782,13 +786,13 @@ fix_mail_server() {
     fi
 
     # Start server if not running
-    if [[ -z "$mail_pids" ]] || [[ "$issues_found" == true ]]; then
+    if [[ "$needs_restart" == true ]] || [[ "$issues_found" == true ]]; then
         cd "$mail_dir" || return $mail_fixed
         nohup uv run python -m mcp_agent_mail.cli serve-http &>/dev/null &
         sleep 3
-        local new_pids=$(pgrep -f "mcp_agent_mail" 2>/dev/null)
-        if [[ -n "$new_pids" ]]; then
-            echo -e "  ${GREEN}✓${NC} Started server (PIDs: $new_pids)"
+        # Verify with HTTP check (more reliable than pgrep on WSL)
+        if curl -s --connect-timeout 2 -o /dev/null "http://localhost:8765/api/health" 2>/dev/null; then
+            echo -e "  ${GREEN}✓${NC} Started server (HTTP health check passed)"
             mail_fixed=$((mail_fixed + 1))
         else
             echo -e "  ${RED}✗${NC} Failed to start server"
