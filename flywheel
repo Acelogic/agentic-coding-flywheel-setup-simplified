@@ -11,7 +11,7 @@
 #   ./flywheel missing   # Show what's missing
 
 set +e
-VERSION="2.5.0"
+VERSION="2.5.1"
 
 # Colors
 if [[ -t 1 ]]; then
@@ -183,8 +183,11 @@ run_doctor() {
                 mail_status="healthy"
             fi
         else
-            # No process running
-            if [[ -d "$mail_dir" ]]; then
+            # No process found via pgrep - try HTTP health check as fallback
+            # (handles WSL cross-distro, Windows-side processes, etc.)
+            if curl -s --connect-timeout 2 -o /dev/null "http://localhost:8765/api/health" 2>/dev/null; then
+                mail_status="healthy"
+            elif [[ -d "$mail_dir" ]]; then
                 mail_status="not_running"
             else
                 mail_status="not_installed"
