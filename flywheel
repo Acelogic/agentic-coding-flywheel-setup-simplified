@@ -152,15 +152,29 @@ run_doctor() {
     echo ""
 
     echo -e "${BOLD}Services:${NC}"
-    local mail_dir="$HOME/Developer/mcp_agent_mail"
+    # Check multiple possible locations for MCP Agent Mail
+    local mail_dir=""
+    if [[ -d "$HOME/mcp_agent_mail" ]]; then
+        mail_dir="$HOME/mcp_agent_mail"
+    elif [[ -d "$HOME/Developer/mcp_agent_mail" ]]; then
+        mail_dir="$HOME/Developer/mcp_agent_mail"
+    elif [[ -d "$HOME/.mcp-agent-mail" ]]; then
+        mail_dir="$HOME/.mcp-agent-mail"
+    fi
     local mail_db="$mail_dir/storage.sqlite3"
     local mail_wal="$mail_dir/storage.sqlite3-wal"
     local mail_shm="$mail_dir/storage.sqlite3-shm"
     local mail_status="unknown"
     local mail_issue=""
 
+    # Step 0: Check if mail_dir was found
+    if [[ -z "$mail_dir" ]]; then
+        mail_status="not_installed"
+        mail_issue="MCP Agent Mail not installed"
+    fi
+
     # Step 1: Check for orphaned WAL/SHM files (main db deleted but residuals remain)
-    if [[ ! -f "$mail_db" ]] && { [[ -f "$mail_wal" ]] || [[ -f "$mail_shm" ]]; }; then
+    if [[ "$mail_status" == "unknown" ]] && [[ ! -f "$mail_db" ]] && { [[ -f "$mail_wal" ]] || [[ -f "$mail_shm" ]]; }; then
         mail_status="orphaned"
         mail_issue="Orphaned WAL/SHM files without main database"
     fi
@@ -187,7 +201,7 @@ run_doctor() {
             # (handles WSL cross-distro, Windows-side processes, etc.)
             if curl -s --connect-timeout 2 -o /dev/null "http://localhost:8765/api/health" 2>/dev/null; then
                 mail_status="healthy"
-            elif [[ -d "$mail_dir" ]]; then
+            elif [[ -n "$mail_dir" ]] && [[ -d "$mail_dir" ]]; then
                 mail_status="not_running"
             else
                 mail_status="not_installed"
@@ -365,10 +379,19 @@ run_doctor() {
     check_stale() {
         local tool=$1 path=$2
         if [[ -f "$path" ]]; then
-            local mod_days=$(( ($(date +%s) - $(stat -f %m "$path" 2>/dev/null || stat -c %Y "$path" 2>/dev/null)) / 86400 ))
-            if [[ $mod_days -gt 30 ]]; then
-                echo -e "  ${YELLOW}○${NC} $tool (${mod_days}d old) - consider updating"
-                stale_found=1
+            local mod_time
+            # Linux/WSL uses -c, macOS uses -f
+            if [[ "$PLATFORM" == "macos" ]]; then
+                mod_time=$(stat -f %m "$path" 2>/dev/null)
+            else
+                mod_time=$(stat -c %Y "$path" 2>/dev/null)
+            fi
+            if [[ -n "$mod_time" ]]; then
+                local mod_days=$(( ($(date +%s) - mod_time) / 86400 ))
+                if [[ $mod_days -gt 30 ]]; then
+                    echo -e "  ${YELLOW}○${NC} $tool (${mod_days}d old) - consider updating"
+                    stale_found=1
+                fi
             fi
         fi
     }
@@ -726,16 +749,24 @@ EOF
 
 fix_mail_server() {
     # Helper function to fix MCP Agent Mail issues
-    local mail_dir="$HOME/Developer/mcp_agent_mail"
+    # Check multiple possible locations
+    local mail_dir=""
+    if [[ -d "$HOME/mcp_agent_mail" ]]; then
+        mail_dir="$HOME/mcp_agent_mail"
+    elif [[ -d "$HOME/Developer/mcp_agent_mail" ]]; then
+        mail_dir="$HOME/Developer/mcp_agent_mail"
+    elif [[ -d "$HOME/.mcp-agent-mail" ]]; then
+        mail_dir="$HOME/.mcp-agent-mail"
+    fi
+
+    # Exit early if not found
+    if [[ -z "$mail_dir" ]]; then
+        return 0  # Not installed, nothing to fix
+    fi
     local mail_db="$mail_dir/storage.sqlite3"
     local mail_wal="$mail_dir/storage.sqlite3-wal"
     local mail_shm="$mail_dir/storage.sqlite3-shm"
     local mail_fixed=0
-
-    # Check if mail_dir exists
-    if [[ ! -d "$mail_dir" ]]; then
-        return 0  # Not installed, nothing to fix
-    fi
 
     local issues_found=false
     local needs_restart=false
@@ -787,8 +818,10 @@ fix_mail_server() {
 
     # Start server if not running
     if [[ "$needs_restart" == true ]] || [[ "$issues_found" == true ]]; then
+        local orig_dir="$PWD"
         cd "$mail_dir" || return $mail_fixed
         nohup uv run python -m mcp_agent_mail.cli serve-http &>/dev/null &
+        cd "$orig_dir" || true
         sleep 3
         # Verify with HTTP check (more reliable than pgrep on WSL)
         if curl -s --connect-timeout 2 -o /dev/null "http://localhost:8765/api/health" 2>/dev/null; then
@@ -868,7 +901,8 @@ run_fix() {
 
     # === MCP Agent Mail fixes ===
     fix_mail_server
-    fixed=$((fixed + $?))
+    local mail_fixes=$?
+    fixed=$((fixed + mail_fixes))
 
     # === Summary ===
     echo -e "${BOLD}Summary:${NC}"
@@ -1096,13 +1130,20 @@ run_start() {
     # Run quick health check first (stderr so it doesn't pollute the context output)
     local health_issues=0
 
-    # Check MCP Agent Mail
-    local mail_dir="$HOME/Developer/mcp_agent_mail"
+    # Check MCP Agent Mail (check multiple possible locations)
+    local mail_dir=""
+    if [[ -d "$HOME/mcp_agent_mail" ]]; then
+        mail_dir="$HOME/mcp_agent_mail"
+    elif [[ -d "$HOME/Developer/mcp_agent_mail" ]]; then
+        mail_dir="$HOME/Developer/mcp_agent_mail"
+    elif [[ -d "$HOME/.mcp-agent-mail" ]]; then
+        mail_dir="$HOME/.mcp-agent-mail"
+    fi
     local mail_db="$mail_dir/storage.sqlite3"
     local mail_wal="$mail_dir/storage.sqlite3-wal"
     local mail_shm="$mail_dir/storage.sqlite3-shm"
 
-    if [[ -d "$mail_dir" ]]; then
+    if [[ -n "$mail_dir" ]] && [[ -d "$mail_dir" ]]; then
         # Check for orphaned files
         if [[ ! -f "$mail_db" ]] && { [[ -f "$mail_wal" ]] || [[ -f "$mail_shm" ]]; }; then
             echo "⚠️  MCP Agent Mail has orphaned database files. Run: flywheel fix" >&2
